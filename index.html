@@ -85,6 +85,8 @@
   .sketchtools{display:flex;gap:6px;padding:10px;border-bottom:1px solid var(--line);align-items:center;flex-wrap:wrap}
   .sketchtools .col{width:30px;height:30px;border-radius:50%;border:2px solid #fff;outline:1px solid var(--line);cursor:pointer}
   .sketchtools .col.on{outline:3px solid var(--accent)}
+  .sketchtools .tl{width:40px;padding:7px 0}
+  .sketchtools .tl.on{background:var(--brand);color:#fff}
   #sketchCanvas{flex:1;touch-action:none;background:#fff}
   .sketchlist{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px}
   .sketchlist .ph{aspect-ratio:4/3;border:1px solid var(--line)}
@@ -94,10 +96,11 @@
     body{background:#fff}
     #app, .tabbar, header.top{display:none!important}
     #report{display:block;font-size:12.5px;color:#000}
-    #report .rphotos{display:grid;grid-template-columns:repeat(2,1fr);gap:6mm}
-    #report .rphotos figure{margin:0;break-inside:avoid}
-    #report .rphotos img{width:100%;border:1px solid #999}
+    #report .rphotos{display:block}
+    #report .rphotos figure{display:inline-block;width:46%;margin:0 2% 4mm 0;vertical-align:top;break-inside:avoid;page-break-inside:avoid}
+    #report .rphotos img{display:block;width:100%;max-height:72mm;object-fit:contain;border:1px solid #999;background:#fafafa}
     #report figcaption{font-size:10.5px;color:#444;margin-top:1mm}
+    #report h2{break-after:avoid;page-break-after:avoid}
     #report table{width:100%;border-collapse:collapse;margin:3mm 0}
     #report th,#report td{border:1px solid #888;padding:4px 7px;text-align:left;vertical-align:top;font-size:11.5px}
     #report th{background:#eee}
@@ -230,16 +233,20 @@
 <div class="sketchwrap" id="sketchWrap">
   <div class="sketchtools">
     <button class="btn w sm" onclick="closeSketch()">✕ ปิด</button>
-    <button class="btn s sm" onclick="document.getElementById('sketchPhoto').click()">📷 ถ่ายรูปมาสเกต</button>
+    <button class="btn s sm" onclick="document.getElementById('sketchPhoto').click()">📷 รูป</button>
     <input type="file" id="sketchPhoto" accept="image/*" capture="environment" style="display:none" onchange="loadSketchPhoto(this)">
+    <button class="btn w sm tl on" data-t="pen" title="ปากกา" onclick="setTool(this)">✏️</button>
+    <button class="btn w sm tl" data-t="line" title="เส้นตรง" onclick="setTool(this)">╱</button>
+    <button class="btn w sm tl" data-t="rect" title="สี่เหลี่ยม" onclick="setTool(this)">▭</button>
+    <button class="btn w sm tl" data-t="circle" title="วงกลม" onclick="setTool(this)">◯</button>
+    <button class="btn w sm tl" data-t="erase" title="ยางลบ" onclick="setTool(this)">🧽</button>
     <span class="col on" style="background:#111" data-c="#111" data-w="3" onclick="setCol(this)"></span>
     <span class="col" style="background:#dc2626" data-c="#dc2626" data-w="3" onclick="setCol(this)"></span>
     <span class="col" style="background:#2563eb" data-c="#2563eb" data-w="3" onclick="setCol(this)"></span>
     <span class="col" style="background:#0b6e4f" data-c="#0b6e4f" data-w="3" onclick="setCol(this)"></span>
     <span class="col" style="background:#f59e0b" data-c="#f59e0b" data-w="6" title="ปากกาเน้น" onclick="setCol(this)"></span>
-    <span class="col" style="background:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px" data-c="#fff" data-w="22" title="ยางลบ" onclick="setCol(this)">🧽</span>
     <button class="btn w sm" onclick="undoSketch()">↩️ ย้อน</button>
-    <button class="btn w sm" onclick="clearSketch()">🧽 ล้าง</button>
+    <button class="btn w sm" onclick="clearSketch()">🗑️ ล้าง</button>
     <button class="btn p sm" style="margin-left:auto" onclick="saveSketch()">💾 บันทึก</button>
   </div>
   <canvas id="sketchCanvas"></canvas>
@@ -599,7 +606,9 @@ function addCheck(){
 }
 
 /* ---------- Sketch ---------- */
-let ctx, drawing=false, strokes=[], col='#111', lw=3;
+let ctx, drawing=false, strokes=[], col='#111', lw=3, tool='pen';
+function setTool(el){ tool=el.dataset.t;
+  document.querySelectorAll('.sketchtools .tl').forEach(x=>x.classList.toggle('on',x===el)); }
 function openSketch(){
   const wrap = document.getElementById('sketchWrap'); wrap.classList.add('on');
   const cv = document.getElementById('sketchCanvas');
@@ -608,8 +617,31 @@ function openSketch(){
   ctx.lineCap='round'; ctx.lineJoin='round'; ctx.lineWidth=3;
   ctx.fillStyle='#fff'; ctx.fillRect(0,0,cv.width,cv.height);
   strokes=[snap()];
-  cv.onpointerdown = e=>{ drawing=true; ctx.strokeStyle=col; ctx.lineWidth=lw; ctx.beginPath(); ctx.moveTo(...pt(e)); e.preventDefault(); };
-  cv.onpointermove = e=>{ if(!drawing) return; ctx.lineTo(...pt(e)); ctx.stroke(); e.preventDefault(); };
+  let sx=0, sy=0, off=null;   // จุดเริ่ม + สำเนา canvas สำหรับ preview รูปทรง
+  cv.onpointerdown = e=>{
+    drawing=true; [sx,sy]=pt(e);
+    ctx.strokeStyle = tool==='erase'? '#fff' : col;
+    ctx.lineWidth = tool==='erase'? 24 : lw;
+    if(tool==='pen'||tool==='erase'){ ctx.beginPath(); ctx.moveTo(sx,sy); }
+    else { off=document.createElement('canvas'); off.width=cv.width; off.height=cv.height;
+           off.getContext('2d').drawImage(cv,0,0); }
+    e.preventDefault();
+  };
+  cv.onpointermove = e=>{
+    if(!drawing) return;
+    const [x,y]=pt(e);
+    if(tool==='pen'||tool==='erase'){ ctx.lineTo(x,y); ctx.stroke(); }
+    else{
+      // วาด preview: คืนภาพเดิมก่อน แล้ววาดรูปทรงจากจุดเริ่ม→ปัจจุบัน
+      ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(off,0,0); ctx.setTransform(2,0,0,2,0,0);
+      ctx.beginPath();
+      if(tool==='line'){ ctx.moveTo(sx,sy); ctx.lineTo(x,y); }
+      else if(tool==='rect'){ ctx.rect(Math.min(sx,x), Math.min(sy,y), Math.abs(x-sx), Math.abs(y-sy)); }
+      else if(tool==='circle'){ ctx.ellipse((sx+x)/2, (sy+y)/2, Math.abs(x-sx)/2, Math.abs(y-sy)/2, 0, 0, Math.PI*2); }
+      ctx.stroke();
+    }
+    e.preventDefault();
+  };
   cv.onpointerup = cv.onpointerleave = ()=>{ if(drawing){ drawing=false; strokes.push(snap()); } };
 }
 function pt(e){ const r=e.target.getBoundingClientRect(); return [e.clientX-r.left, e.clientY-r.top]; }
