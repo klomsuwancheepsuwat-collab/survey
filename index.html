@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>📋 Survey Field Form — สำรวจหน้างาน</title>
+<style>
+  :root{
+    --bg:#f4f6f8; --card:#fff; --ink:#1a2733; --muted:#7b8794;
+    --brand:#0b6e4f; --brand2:#0d8a62; --accent:#f59e0b; --danger:#dc2626;
+    --line:#e3e8ee; --radius:14px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Sukhumvit Set','Noto Sans Thai',sans-serif;font-size:16px}
+  /* ===== Layout ===== */
+  #app{max-width:760px;margin:0 auto;padding:0 12px 90px}
+  header.top{position:sticky;top:0;z-index:50;background:var(--brand);color:#fff;
+    margin:0 -12px 12px;padding:14px 16px;display:flex;align-items:center;gap:10px}
+  header.top h1{font-size:17px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  header.top .sub{font-size:12px;opacity:.85}
+  .tabbar{position:fixed;bottom:0;left:0;right:0;z-index:50;background:#fff;border-top:1px solid var(--line);
+    display:flex;justify-content:space-around;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+  .tabbar button{flex:1;background:none;border:none;font-size:11px;color:var(--muted);padding:4px 2px;cursor:pointer}
+  .tabbar button .ic{display:block;font-size:20px;margin-bottom:2px}
+  .tabbar button.on{color:var(--brand);font-weight:700}
+  .page{display:none}.page.on{display:block}
+  /* ===== Cards & forms ===== */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:12px}
+  .card h3{margin:0 0 10px;font-size:15px}
+  label.f{display:block;font-size:12.5px;color:var(--muted);margin:8px 0 3px}
+  input[type=text],input[type=date],input[type=number],select,textarea{
+    width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px;
+    font-family:inherit;background:#fbfcfd;color:var(--ink)}
+  textarea{resize:vertical;min-height:60px}
+  .row{display:flex;gap:8px}.row>*{flex:1;min-width:0}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:10px;
+    padding:11px 16px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit}
+  .btn.p{background:var(--brand);color:#fff}
+  .btn.s{background:#e8f0ec;color:var(--brand)}
+  .btn.w{background:#fff;border:1px solid var(--line);color:var(--ink)}
+  .btn.d{background:#fde8e8;color:var(--danger)}
+  .btn.sm{padding:7px 12px;font-size:13px;border-radius:8px}
+  .btn.block{width:100%}
+  .muted{color:var(--muted);font-size:13px}
+  .pill{display:inline-block;background:#eef2f5;border-radius:99px;padding:2px 10px;font-size:12px;color:var(--muted)}
+  .empty{text-align:center;color:var(--muted);padding:36px 10px;font-size:14px}
+  .empty .big{font-size:40px;display:block;margin-bottom:8px}
+  /* ===== Project list ===== */
+  .proj{display:flex;align-items:center;gap:12px;cursor:pointer}
+  .proj .ic{font-size:26px}
+  .proj .nm{font-weight:700;font-size:15px}
+  .proj .dt{font-size:12px;color:var(--muted)}
+  .proj .go{margin-left:auto;color:var(--muted)}
+  /* ===== Survey items ===== */
+  .item{border-left:4px solid var(--brand)}
+  .item .hd{display:flex;align-items:center;gap:8px;cursor:pointer}
+  .item .hd .cat{font-size:22px}
+  .item .hd .t{flex:1;min-width:0}
+  .item .hd .t .nm{font-weight:700;font-size:14.5px}
+  .item .hd .t .dims{font-size:12px;color:var(--muted)}
+  .item .body{display:none;margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
+  .item.open .body{display:block}
+  .calc{background:#f0f7f3;border-radius:10px;padding:8px 12px;font-size:13px;color:var(--brand);margin-top:8px}
+  .photos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+  .ph{position:relative;border-radius:10px;overflow:hidden;aspect-ratio:1;background:#eee}
+  .ph img{width:100%;height:100%;object-fit:cover;display:block}
+  .ph .x{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:50%;
+    width:24px;height:24px;font-size:13px;cursor:pointer;line-height:1}
+  .gpsline{font-size:12.5px;margin-top:6px}
+  .gpsline a{color:var(--brand)}
+  /* ===== Checklist ===== */
+  .ck{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .ck:last-child{border-bottom:none}
+  .ck .lb{flex:1;font-size:14px;padding-top:6px}
+  .ck .st{display:flex;gap:4px}
+  .ck .st button{border:1px solid var(--line);background:#fff;border-radius:8px;width:38px;height:34px;font-size:15px;cursor:pointer}
+  .ck .st button.ok{background:#d9f2e5;border-color:#8fd6b3}
+  .ck .st button.no{background:#fde2e2;border-color:#f2a6a6}
+  .ck .st button.na{background:#eceff3;border-color:#c8d0d9}
+  .ck input.nt{margin-top:6px;font-size:13px;padding:7px 10px}
+  /* ===== Sketch ===== */
+  .sketchwrap{position:fixed;inset:0;background:#fff;z-index:100;display:none;flex-direction:column}
+  .sketchwrap.on{display:flex}
+  .sketchtools{display:flex;gap:6px;padding:10px;border-bottom:1px solid var(--line);align-items:center;flex-wrap:wrap}
+  .sketchtools .col{width:30px;height:30px;border-radius:50%;border:2px solid #fff;outline:1px solid var(--line);cursor:pointer}
+  .sketchtools .col.on{outline:3px solid var(--accent)}
+  #sketchCanvas{flex:1;touch-action:none;background:#fff}
+  .sketchlist{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px}
+  .sketchlist .ph{aspect-ratio:4/3;border:1px solid var(--line)}
+  /* ===== Report (print) ===== */
+  #report{display:none}
+  @media print{
+    body{background:#fff}
+    #app, .tabbar, header.top{display:none!important}
+    #report{display:block;font-size:12.5px;color:#000}
+    #report .rphotos{display:grid;grid-template-columns:repeat(2,1fr);gap:6mm}
+    #report .rphotos figure{margin:0;break-inside:avoid}
+    #report .rphotos img{width:100%;border:1px solid #999}
+    #report figcaption{font-size:10.5px;color:#444;margin-top:1mm}
+    #report table{width:100%;border-collapse:collapse;margin:3mm 0}
+    #report th,#report td{border:1px solid #888;padding:4px 7px;text-align:left;vertical-align:top;font-size:11.5px}
+    #report th{background:#eee}
+    #report h1{font-size:17px;margin:0 0 2mm}
+    #report h2{font-size:14px;margin:6mm 0 2mm;border-bottom:2px solid #000;padding-bottom:1mm}
+    #report .sig{display:flex;gap:14mm;margin-top:14mm}
+    #report .sig div{flex:1;text-align:center;border-top:1px solid #000;padding-top:2mm;font-size:11.5px}
+    .pagebreak{break-before:page}
+  }
+  @media (min-width:600px){ .photos{grid-template-columns:repeat(4,1fr)} }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <span style="font-size:22px">📋</span>
+  <div style="flex:1;min-width:0">
+    <h1 id="hdTitle">Survey Field Form</h1>
+    <div class="sub" id="hdSub">สำรวจหน้างานก่อสร้าง</div>
+  </div>
+</header>
+
+<div id="app">
+
+  <!-- ============ PAGE: โครงการ ============ -->
+  <section class="page on" id="pg-proj">
+    <div class="row" style="margin-bottom:12px">
+      <button class="btn p block" onclick="newProject()">＋ สำรวจโครงการใหม่</button>
+    </div>
+    <div id="projList"></div>
+    <div class="card">
+      <h3>💾 สำรอง / ย้ายข้อมูล</h3>
+      <div class="row">
+        <button class="btn s" onclick="exportJSON()">⬇️ Export ทั้งหมด</button>
+        <button class="btn w" onclick="document.getElementById('impFile').click()">⬆️ Import</button>
+        <input type="file" id="impFile" accept=".json" style="display:none" onchange="importJSON(this)">
+      </div>
+      <p class="muted" style="margin:8px 0 0">ข้อมูลเก็บในเครื่องนี้ (offline ได้) — Export เป็นไฟล์ .json ไว้สำรอง/ส่งต่อเข้าโปรแกรม BOQ ได้</p>
+    </div>
+  </section>
+
+  <!-- ============ PAGE: ข้อมูลโครงการ ============ -->
+  <section class="page" id="pg-info">
+    <div class="card">
+      <h3>🏗️ ข้อมูลโครงการ</h3>
+      <label class="f">ชื่อโครงการ *</label>
+      <input type="text" id="pName" placeholder="เช่น รัตนากร วิลเลจ 17 — ขยายถนน" oninput="bindInfo()">
+      <label class="f">ลูกค้า / ผู้ว่าจ้าง</label>
+      <input type="text" id="pClient" placeholder="ชื่อบริษัท / นิติบุคคล / บุคคล" oninput="bindInfo()">
+      <div class="row">
+        <div><label class="f">วันที่สำรวจ</label><input type="date" id="pDate" oninput="bindInfo()"></div>
+        <div><label class="f">ผู้สำรวจ</label><input type="text" id="pSurveyor" placeholder="ชื่อคุณ" oninput="bindInfo()"></div>
+      </div>
+      <label class="f">ที่ตั้ง / ที่อยู่หน้างาน</label>
+      <textarea id="pLoc" placeholder="ที่อยู่ จุดสังเกต เส้นทางเข้า" oninput="bindInfo()"></textarea>
+      <div class="row" style="margin-top:8px;align-items:center">
+        <button class="btn s sm" style="flex:0 0 auto" onclick="pinGPS()">📍 ปักหมุด GPS</button>
+        <button class="btn w sm" style="flex:0 0 auto" onclick="manualGPS()">✍️ พิมพ์พิกัด</button>
+        <div class="gpsline" id="pGps">ยังไม่ได้ปักหมุด</div>
+      </div>
+      <label class="f">บันทึกภาพรวม / ข้อตกลงกับลูกค้าหน้างาน</label>
+      <textarea id="pNote" placeholder="สิ่งที่คุยกับลูกค้า ขอบเขตงาน เงื่อนไขพิเศษ" oninput="bindInfo()"></textarea>
+    </div>
+    <button class="btn d block" onclick="delProject()">🗑️ ลบโครงการนี้</button>
+  </section>
+
+  <!-- ============ PAGE: รายการสำรวจ ============ -->
+  <section class="page" id="pg-items">
+    <button class="btn p block" style="margin-bottom:12px" onclick="addItem()">＋ เพิ่มจุดสำรวจ / รายการงาน</button>
+    <div id="itemList"></div>
+  </section>
+
+  <!-- ============ PAGE: เช็คลิสต์ ============ -->
+  <section class="page" id="pg-check">
+    <div class="card">
+      <h3>✅ เช็คลิสต์หน้างาน <span class="pill" id="ckCount"></span></h3>
+      <p class="muted" style="margin:0 0 6px">แตะ ✓ = ผ่าน/มี · ✗ = มีปัญหา/ไม่มี · N/A = ไม่เกี่ยว</p>
+      <div id="ckList"></div>
+      <div class="row" style="margin-top:10px">
+        <input type="text" id="ckNew" placeholder="เพิ่มหัวข้อเช็คเอง...">
+        <button class="btn s sm" style="flex:0 0 auto" onclick="addCheck()">เพิ่ม</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PAGE: สเก็ตช์ ============ -->
+  <section class="page" id="pg-sketch">
+    <button class="btn p block" onclick="openSketch()">✏️ วาดสเก็ตช์ใหม่</button>
+    <div class="card" style="margin-top:12px">
+      <h3>ผังสเก็ตช์ของโครงการ</h3>
+      <div class="sketchlist" id="sketchList"></div>
+      <p class="muted" id="sketchEmpty" style="margin:6px 0 0">ยังไม่มีสเก็ตช์ — วาดผังคร่าวๆ ระบุระยะที่วัดได้</p>
+    </div>
+  </section>
+
+  <!-- ============ PAGE: รายงาน ============ -->
+  <section class="page" id="pg-report">
+    <div class="card">
+      <h3>📄 รายงานสำรวจหน้างาน</h3>
+      <p class="muted">รวมข้อมูลโครงการ + รายการสำรวจ + รูปถ่าย + เช็คลิสต์ + สเก็ตช์ เป็นรายงานพร้อมพิมพ์ / บันทึก PDF ส่งลูกค้า</p>
+      <button class="btn p block" onclick="makeReport()">🖨️ สร้างรายงาน + พิมพ์ / บันทึก PDF</button>
+      <p class="muted" style="margin-top:8px">บนมือถือ: กดแล้วเลือก "บันทึกเป็น PDF" ในหน้าจอพิมพ์</p>
+    </div>
+  </section>
+
+</div>
+
+<!-- ===== Tab bar ===== -->
+<nav class="tabbar" id="tabbar" style="display:none">
+  <button data-pg="proj" onclick="go('proj')"><span class="ic">📁</span>โครงการ</button>
+  <button data-pg="info" onclick="go('info')"><span class="ic">🏗️</span>ข้อมูล</button>
+  <button data-pg="items" onclick="go('items')"><span class="ic">📋</span>สำรวจ</button>
+  <button data-pg="check" onclick="go('check')"><span class="ic">✅</span>เช็ค</button>
+  <button data-pg="sketch" onclick="go('sketch')"><span class="ic">✏️</span>สเก็ตช์</button>
+  <button data-pg="report" onclick="go('report')"><span class="ic">📄</span>รายงาน</button>
+</nav>
+<nav class="tabbar" id="tabbarHome">
+  <button class="on"><span class="ic">📁</span>เลือกหรือสร้างโครงการเพื่อเริ่ม</button>
+</nav>
+
+<!-- ===== Sketch overlay ===== -->
+<div class="sketchwrap" id="sketchWrap">
+  <div class="sketchtools">
+    <button class="btn w sm" onclick="closeSketch()">✕ ปิด</button>
+    <button class="btn s sm" onclick="document.getElementById('sketchPhoto').click()">📷 ถ่ายรูปมาสเกต</button>
+    <input type="file" id="sketchPhoto" accept="image/*" capture="environment" style="display:none" onchange="loadSketchPhoto(this)">
+    <span class="col on" style="background:#111" data-c="#111" data-w="3" onclick="setCol(this)"></span>
+    <span class="col" style="background:#dc2626" data-c="#dc2626" data-w="3" onclick="setCol(this)"></span>
+    <span class="col" style="background:#2563eb" data-c="#2563eb" data-w="3" onclick="setCol(this)"></span>
+    <span class="col" style="background:#0b6e4f" data-c="#0b6e4f" data-w="3" onclick="setCol(this)"></span>
+    <span class="col" style="background:#f59e0b" data-c="#f59e0b" data-w="6" title="ปากกาเน้น" onclick="setCol(this)"></span>
+    <span class="col" style="background:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px" data-c="#fff" data-w="22" title="ยางลบ" onclick="setCol(this)">🧽</span>
+    <button class="btn w sm" onclick="undoSketch()">↩️ ย้อน</button>
+    <button class="btn w sm" onclick="clearSketch()">🧽 ล้าง</button>
+    <button class="btn p sm" style="margin-left:auto" onclick="saveSketch()">💾 บันทึก</button>
+  </div>
+  <canvas id="sketchCanvas"></canvas>
+</div>
+
+<!-- ===== Printable report ===== -->
+<div id="report"></div>
+
+<script>
+'use strict';
+/* =================================================================
+   Survey Field Form — single-file field survey app
+   เก็บข้อมูลใน IndexedDB (รองรับรูปเยอะ) — โครงสร้าง item เก็บ
+   กว้าง/ยาว/หนา/จำนวน แบบ structured เผื่อส่งต่อเข้าโปรแกรม BOQ
+   ================================================================= */
+
+const CATS = [
+  {id:'prep',  ic:'🧹', nm:'เตรียมการ/เคลียร์ริ่ง'},
+  {id:'demo',  ic:'🔨', nm:'รื้อถอน'},
+  {id:'road',  ic:'🛣️', nm:'ถนน/พื้น ค.ส.ล.'},
+  {id:'struct',ic:'🏗️', nm:'โครงสร้าง'},
+  {id:'roof',  ic:'🏠', nm:'หลังคา/ผนัง'},
+  {id:'drain', ic:'💧', nm:'ระบายน้ำ/สุขาภิบาล'},
+  {id:'elec',  ic:'⚡', nm:'ไฟฟ้า'},
+  {id:'other', ic:'📦', nm:'อื่นๆ'},
+];
+const UNITS = ['ตร.ม.','เมตร','ลบ.ม.','คิว','จุด','ชุด','ท่อน','แผ่น','ต้น','กก.','เหมา'];
+const CK_DEFAULT = [
+  'ทางเข้า–ออกไซต์งาน รถใหญ่/รถโม่เข้าได้',
+  'จุดจอดรถ + ที่กองวัสดุ',
+  'แหล่งน้ำ–ไฟฟ้าใช้หน้างาน',
+  'ระดับพื้นเดิม / ความลาดเอียง / จุดน้ำขัง',
+  'สิ่งกีดขวาง (ต้นไม้ เสาไฟ ท่อ สายไฟ)',
+  'โครงสร้างเดิม / แนวท่อระบายน้ำเดิม',
+  'เพื่อนบ้าน / ข้อจำกัดเวลาทำงาน–เสียง',
+  'จุดทิ้งเศษวัสดุ + ระยะขนทิ้ง',
+  'จุดที่ต้องมีรั้ว/ป้องกันชั่วคราว',
+  'ถ่ายรูปครบ 4 มุม + จุดสำคัญ',
+];
+
+/* ---------- IndexedDB ---------- */
+let db;
+function idb(){ return new Promise((res,rej)=>{
+  if(db) return res(db);
+  const rq = indexedDB.open('surveyDB',1);
+  rq.onupgradeneeded = e=>{ e.target.result.createObjectStore('projects',{keyPath:'id'}); };
+  rq.onsuccess = e=>{ db=e.target.result; res(db); };
+  rq.onerror = ()=>rej(rq.error);
+});}
+async function dbPut(p){ const d=await idb(); return new Promise((res,rej)=>{
+  const tx=d.transaction('projects','readwrite'); tx.objectStore('projects').put(p);
+  tx.oncomplete=res; tx.onerror=()=>rej(tx.error); });}
+async function dbAll(){ const d=await idb(); return new Promise((res,rej)=>{
+  const rq=d.transaction('projects').objectStore('projects').getAll();
+  rq.onsuccess=()=>res(rq.result||[]); rq.onerror=()=>rej(rq.error); });}
+async function dbDel(id){ const d=await idb(); return new Promise((res,rej)=>{
+  const tx=d.transaction('projects','readwrite'); tx.objectStore('projects').delete(id);
+  tx.oncomplete=res; tx.onerror=()=>rej(tx.error); });}
+
+/* ---------- State ---------- */
+let P = null;           // current project
+let saveTimer = null;
+const uid = ()=> Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);
+const esc = s => (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function save(now){ if(!P) return; P.updatedAt = new Date().toISOString();
+  clearTimeout(saveTimer);
+  if(now) return dbPut(P);
+  saveTimer = setTimeout(()=>dbPut(P), 400);
+}
+
+/* ---------- Navigation ---------- */
+function go(pg){
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
+  document.getElementById('pg-'+pg).classList.add('on');
+  document.querySelectorAll('#tabbar button').forEach(b=>b.classList.toggle('on', b.dataset.pg===pg));
+  const home = pg==='proj';
+  document.getElementById('tabbar').style.display = home||!P ? 'none':'flex';
+  document.getElementById('tabbarHome').style.display = home||!P ? 'flex':'none';
+  if(home){ P=null; renderProjects(); setHead(); }
+  window.scrollTo(0,0);
+}
+function setHead(){
+  document.getElementById('hdTitle').textContent = P ? (P.name||'(ยังไม่ตั้งชื่อ)') : 'Survey Field Form';
+  document.getElementById('hdSub').textContent = P ? ('สำรวจ: '+(P.date||'-')+' · '+P.items.length+' รายการ') : 'สำรวจหน้างานก่อสร้าง';
+}
+
+/* ---------- Projects ---------- */
+async function renderProjects(){
+  const list = await dbAll();
+  list.sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''));
+  const el = document.getElementById('projList');
+  if(!list.length){ el.innerHTML = '<div class="empty"><span class="big">🗂️</span>ยังไม่มีโครงการ<br>กด "สำรวจโครงการใหม่" เพื่อเริ่ม</div>'; return; }
+  el.innerHTML = list.map(p=>`
+    <div class="card proj" onclick="openProject('${p.id}')">
+      <span class="ic">🏗️</span>
+      <div><div class="nm">${esc(p.name)||'(ยังไม่ตั้งชื่อ)'}</div>
+      <div class="dt">${esc(p.client)||''} · สำรวจ ${p.date||'-'} · ${p.items.length} รายการ · 📷 ${p.items.reduce((s,i)=>s+i.photos.length,0)} รูป</div></div>
+      <span class="go">›</span>
+    </div>`).join('');
+}
+async function newProject(){
+  P = { id:uid(), name:'', client:'', date:new Date().toISOString().slice(0,10),
+        surveyor:'', loc:'', note:'', gps:null,
+        items:[], sketches:[],
+        checklist: CK_DEFAULT.map(t=>({id:uid(), label:t, status:null, note:'', photos:[]})),
+        updatedAt:new Date().toISOString() };
+  await save(true);
+  loadProjectUI(); go('info');
+  document.getElementById('pName').focus();
+}
+async function openProject(id){
+  const list = await dbAll();
+  P = list.find(x=>x.id===id); if(!P) return;
+  loadProjectUI(); go('items');
+}
+async function delProject(){
+  if(!P) return;
+  if(!confirm('ลบโครงการ "'+(P.name||'ไม่มีชื่อ')+'" และข้อมูลทั้งหมด?')) return;
+  await dbDel(P.id); P=null; go('proj');
+}
+function loadProjectUI(){
+  P.checklist.forEach(c=>{ if(!c.photos) c.photos=[]; });   // โปรเจกต์เก่าไม่มีช่องรูป
+  document.getElementById('pName').value = P.name;
+  document.getElementById('pClient').value = P.client;
+  document.getElementById('pDate').value = P.date;
+  document.getElementById('pSurveyor').value = P.surveyor;
+  document.getElementById('pLoc').value = P.loc;
+  document.getElementById('pNote').value = P.note;
+  renderGPS(); renderItems(); renderChecks(); renderSketches(); setHead();
+}
+function bindInfo(){
+  P.name = document.getElementById('pName').value;
+  P.client = document.getElementById('pClient').value;
+  P.date = document.getElementById('pDate').value;
+  P.surveyor = document.getElementById('pSurveyor').value;
+  P.loc = document.getElementById('pLoc').value;
+  P.note = document.getElementById('pNote').value;
+  setHead(); save();
+}
+
+/* ---------- GPS ---------- */
+// ลอง 2 จังหวะ: ความแม่นสูง (GPS จริงบนมือถือ) → ไม่ได้ค่อยลดความแม่น (Wi-Fi/IP)
+function getPos(ok, fail){
+  if(!navigator.geolocation) return fail({message:'เบราว์เซอร์นี้ไม่รองรับ'});
+  navigator.geolocation.getCurrentPosition(
+    pos=>ok({lat:+pos.coords.latitude.toFixed(6), lng:+pos.coords.longitude.toFixed(6), acc:Math.round(pos.coords.accuracy)}),
+    ()=>navigator.geolocation.getCurrentPosition(
+      pos=>ok({lat:+pos.coords.latitude.toFixed(6), lng:+pos.coords.longitude.toFixed(6), acc:Math.round(pos.coords.accuracy)}),
+      fail, {enableHighAccuracy:false, timeout:20000, maximumAge:300000}),
+    {enableHighAccuracy:true, timeout:8000, maximumAge:0});
+}
+// รับ "13.7563, 100.5018" หรือลิงก์ Google Maps ที่มีพิกัดอยู่ข้างใน
+function parseLatLng(s){
+  const m = (s||'').match(/(-?\d{1,2}\.\d{3,})\s*[, ]\s*(-?\d{1,3}\.\d{3,})/);
+  return m? {lat:+(+m[1]).toFixed(6), lng:+(+m[2]).toFixed(6), acc:0} : null;
+}
+function manualGPS(){
+  const s = prompt('วางพิกัดจาก Google Maps เช่น 13.7563, 100.5018\n(กดค้างบนแผนที่ → ก๊อปพิกัด หรือวางลิงก์แชร์ที่มีตัวเลขพิกัดก็ได้)','');
+  if(s===null) return;
+  const g = parseLatLng(s);
+  if(!g) return alert('อ่านพิกัดไม่ออก — ต้องเป็นรูปแบบ ละติจูด, ลองจิจูด เช่น 13.7563, 100.5018');
+  P.gps = g; renderGPS(); save();
+}
+function pinGPS(){
+  document.getElementById('pGps').textContent = '⏳ กำลังหาตำแหน่ง...';
+  getPos(g=>{ P.gps=g; renderGPS(); save(); },
+    err=>{ document.getElementById('pGps').innerHTML =
+      '❌ หาตำแหน่งอัตโนมัติไม่ได้ — กด "✍️ พิมพ์พิกัด" วางจาก Google Maps แทนได้<br>'+
+      '<span style="color:#999">(บนคอมต้องเปิด Location Services ให้เบราว์เซอร์ · บนมือถือใช้ GPS จริง แม่นกว่า)</span>'; });
+}
+function renderGPS(){
+  const el = document.getElementById('pGps');
+  el.innerHTML = P.gps
+    ? `📍 <a href="https://maps.google.com/?q=${P.gps.lat},${P.gps.lng}" target="_blank">${P.gps.lat}, ${P.gps.lng}</a> (±${P.gps.acc} ม.)`
+    : 'ยังไม่ได้ปักหมุด';
+}
+
+/* ---------- Survey items ---------- */
+function addItem(){
+  P.items.push({ id:uid(), cat:'road', name:'', w:'', l:'', t:'', qty:'', unit:'ตร.ม.',
+                 note:'', gps:null, photos:[], open:true });
+  save(); renderItems();
+  window.scrollTo(0, document.body.scrollHeight);
+}
+function delItem(id){
+  const it = P.items.find(x=>x.id===id);
+  if(!confirm('ลบรายการ "'+(it.name||'ไม่มีชื่อ')+'" ?')) return;
+  P.items = P.items.filter(x=>x.id!==id); save(); renderItems();
+}
+function toggleItem(id){
+  const it = P.items.find(x=>x.id===id); it.open = !it.open; renderItems();
+}
+function bindItem(id, k, v){
+  const it = P.items.find(x=>x.id===id); it[k]=v; save();
+  document.getElementById('calc-'+id).innerHTML = calcText(it);
+  document.getElementById('dims-'+id).textContent = dimText(it);
+}
+function dimText(it){
+  const d=[]; if(it.w) d.push('กว้าง '+it.w+' ม.'); if(it.l) d.push('ยาว '+it.l+' ม.');
+  if(it.t) d.push('หนา/ลึก '+it.t+' ซม.'); if(it.qty) d.push(it.qty+' '+it.unit);
+  return d.join(' × ')||'ยังไม่ได้วัด';
+}
+function calcText(it){
+  const w=parseFloat(it.w), l=parseFloat(it.l), t=parseFloat(it.t);
+  const out=[];
+  if(w>0&&l>0){ out.push('พื้นที่ ≈ <b>'+(w*l).toFixed(2)+' ตร.ม.</b>');
+    if(t>0){ out.push('ปริมาตร ≈ <b>'+(w*l*t/100).toFixed(2)+' ลบ.ม.</b> (คอนกรีต ≈ '+(w*l*t/100*1.05).toFixed(2)+' คิว เผื่อ 5%)'); } }
+  else if(l>0&&t>0&&!w){ out.push('แนวยาว '+l+' ม.'); }
+  return out.length? '🧮 '+out.join(' · ') : '🧮 กรอกกว้าง×ยาว (×หนา) เพื่อคำนวณอัตโนมัติ';
+}
+function catOf(id){ return CATS.find(c=>c.id===id)||CATS[CATS.length-1]; }
+function renderItems(){
+  const el = document.getElementById('itemList');
+  if(!P.items.length){ el.innerHTML='<div class="empty"><span class="big">📐</span>ยังไม่มีรายการสำรวจ<br>เพิ่มจุดที่ต้องวัด/ถ่ายรูปได้เลย</div>'; setHead(); return; }
+  el.innerHTML = P.items.map((it,idx)=>{
+    const c = catOf(it.cat);
+    return `<div class="card item ${it.open?'open':''}" id="it-${it.id}">
+      <div class="hd" onclick="toggleItem('${it.id}')">
+        <span class="cat">${c.ic}</span>
+        <div class="t"><div class="nm">${idx+1}. ${esc(it.name)||'(ยังไม่ตั้งชื่อจุดสำรวจ)'}</div>
+        <div class="dims" id="dims-${it.id}">${dimText(it)}${it.photos.length? ' · 📷 '+it.photos.length:''}</div></div>
+        <span>${it.open?'▾':'▸'}</span>
+      </div>
+      <div class="body">
+        <label class="f">ชื่อจุด / รายการงาน</label>
+        <input type="text" value="${esc(it.name)}" placeholder="เช่น ถนนทางเข้า ฝั่งซ้าย" oninput="bindItem('${it.id}','name',this.value)">
+        <div class="row">
+          <div><label class="f">ประเภทงาน</label>
+            <select onchange="bindItem('${it.id}','cat',this.value);renderItems()">
+              ${CATS.map(x=>`<option value="${x.id}" ${x.id===it.cat?'selected':''}>${x.ic} ${x.nm}</option>`).join('')}
+            </select></div>
+          <div><label class="f">หน่วยหลัก</label>
+            <select onchange="bindItem('${it.id}','unit',this.value)">
+              ${UNITS.map(u=>`<option ${u===it.unit?'selected':''}>${u}</option>`).join('')}
+            </select></div>
+        </div>
+        <div class="row">
+          <div><label class="f">กว้าง (ม.)</label><input type="number" inputmode="decimal" step="any" value="${it.w}" oninput="bindItem('${it.id}','w',this.value)"></div>
+          <div><label class="f">ยาว (ม.)</label><input type="number" inputmode="decimal" step="any" value="${it.l}" oninput="bindItem('${it.id}','l',this.value)"></div>
+          <div><label class="f">หนา/ลึก (ซม.)</label><input type="number" inputmode="decimal" step="any" value="${it.t}" oninput="bindItem('${it.id}','t',this.value)"></div>
+          <div><label class="f">จำนวน</label><input type="number" inputmode="decimal" step="any" value="${it.qty}" oninput="bindItem('${it.id}','qty',this.value)"></div>
+        </div>
+        <div class="calc" id="calc-${it.id}">${calcText(it)}</div>
+        <label class="f">สภาพหน้างาน / หมายเหตุ</label>
+        <textarea placeholder="เช่น พื้นเดิมแตกร้าว มีท่อเดิมลึก ~40 ซม." oninput="bindItem('${it.id}','note',this.value)">${esc(it.note)}</textarea>
+        <div class="row" style="margin-top:10px">
+          <button class="btn s sm" onclick="document.getElementById('ph-${it.id}').click()">📷 ถ่าย/แนบรูป</button>
+          <button class="btn w sm" onclick="itemGPS('${it.id}')">📍 GPS จุดนี้</button>
+          <button class="btn d sm" style="flex:0 0 auto" onclick="delItem('${it.id}')">🗑️</button>
+        </div>
+        <input type="file" id="ph-${it.id}" accept="image/*" capture="environment" multiple style="display:none" onchange="addPhotos('${it.id}',this)">
+        <div class="gpsline">${it.gps? `📍 <a href="https://maps.google.com/?q=${it.gps.lat},${it.gps.lng}" target="_blank">${it.gps.lat}, ${it.gps.lng}</a>`:''}</div>
+        <div class="photos">${it.photos.map((p,i)=>`
+          <div class="ph"><img src="${p.data}" onclick="capPhoto('${it.id}',${i})">
+          <button class="x" onclick="delPhoto('${it.id}',${i})">✕</button></div>`).join('')}</div>
+      </div>
+    </div>`;
+  }).join('');
+  setHead();
+}
+function itemGPS(id){
+  const it = P.items.find(x=>x.id===id);
+  getPos(g=>{ it.gps=g; save(); renderItems(); },
+    ()=>{ const s = prompt('GPS อัตโนมัติไม่ได้ — วางพิกัดจาก Google Maps แทน เช่น 13.7563, 100.5018','');
+      if(s===null) return;
+      const g = parseLatLng(s);
+      if(!g) return alert('อ่านพิกัดไม่ออก');
+      it.gps=g; save(); renderItems(); });
+}
+
+/* ---------- Photos (compressed → dataURL) ---------- */
+function compress(file, maxDim=1100, q=0.62){
+  return new Promise(res=>{
+    const img = new Image();
+    img.onload = ()=>{
+      let {width:w, height:h} = img;
+      const sc = Math.min(1, maxDim/Math.max(w,h));
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(w*sc); cv.height = Math.round(h*sc);
+      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+      res(cv.toDataURL('image/jpeg', q));
+      URL.revokeObjectURL(img.src);
+    };
+    img.src = URL.createObjectURL(file);
+  });
+}
+async function addPhotos(id, input){
+  const it = P.items.find(x=>x.id===id);
+  for(const f of input.files){
+    const data = await compress(f);
+    it.photos.push({data, caption:''});
+  }
+  input.value=''; save(true); renderItems();
+}
+function delPhoto(id, i){
+  const it = P.items.find(x=>x.id===id);
+  it.photos.splice(i,1); save(); renderItems();
+}
+function capPhoto(id, i){
+  const it = P.items.find(x=>x.id===id);
+  const c = prompt('คำบรรยายรูป (จะแสดงในรายงาน)', it.photos[i].caption||'');
+  if(c!==null){ it.photos[i].caption=c; save(); }
+}
+
+/* ---------- Checklist ---------- */
+function renderChecks(){
+  const el = document.getElementById('ckList');
+  el.innerHTML = P.checklist.map(c=>`
+    <div class="ck">
+      <div style="flex:1;min-width:0">
+        <div class="lb">${esc(c.label)}</div>
+        ${c.status==='no'? `<input class="nt" type="text" placeholder="ปัญหาที่พบ / ต้องทำอะไร" value="${esc(c.note)}" oninput="ckNote('${c.id}',this.value)">`:''}
+        <div style="margin-top:6px">
+          <button class="btn w sm" onclick="document.getElementById('ckph-${c.id}').click()">📷 แนบรูปจุดนี้${c.photos.length? ' ('+c.photos.length+')':''}</button>
+          <input type="file" id="ckph-${c.id}" accept="image/*" capture="environment" multiple style="display:none" onchange="addCkPhotos('${c.id}',this)">
+        </div>
+        ${c.photos.length? `<div class="photos">${c.photos.map((p,i)=>`
+          <div class="ph"><img src="${p.data}" onclick="capCkPhoto('${c.id}',${i})">
+          <button class="x" onclick="delCkPhoto('${c.id}',${i})">✕</button></div>`).join('')}</div>`:''}
+      </div>
+      <div class="st">
+        <button class="${c.status==='ok'?'ok':''}" onclick="ckSet('${c.id}','ok')">✓</button>
+        <button class="${c.status==='no'?'no':''}" onclick="ckSet('${c.id}','no')">✗</button>
+        <button class="${c.status==='na'?'na':''}" onclick="ckSet('${c.id}','na')">–</button>
+      </div>
+    </div>`).join('');
+  const done = P.checklist.filter(c=>c.status).length;
+  document.getElementById('ckCount').textContent = done+'/'+P.checklist.length;
+}
+async function addCkPhotos(id, input){
+  const c = P.checklist.find(x=>x.id===id);
+  for(const f of input.files){
+    const data = await compress(f);
+    c.photos.push({data, caption:''});
+  }
+  input.value=''; save(true); renderChecks();
+}
+function delCkPhoto(id, i){
+  const c = P.checklist.find(x=>x.id===id);
+  c.photos.splice(i,1); save(); renderChecks();
+}
+function capCkPhoto(id, i){
+  const c = P.checklist.find(x=>x.id===id);
+  const cap = prompt('คำบรรยายรูป (เช่น "วาล์วน้ำอยู่หลังตู้ไฟ")', c.photos[i].caption||'');
+  if(cap!==null){ c.photos[i].caption=cap; save(); }
+}
+function ckSet(id, st){
+  const c = P.checklist.find(x=>x.id===id);
+  c.status = c.status===st? null : st; save(); renderChecks();
+}
+function ckNote(id, v){ P.checklist.find(x=>x.id===id).note=v; save(); }
+function addCheck(){
+  const inp = document.getElementById('ckNew');
+  if(!inp.value.trim()) return;
+  P.checklist.push({id:uid(), label:inp.value.trim(), status:null, note:'', photos:[]});
+  inp.value=''; save(); renderChecks();
+}
+
+/* ---------- Sketch ---------- */
+let ctx, drawing=false, strokes=[], col='#111', lw=3;
+function openSketch(){
+  const wrap = document.getElementById('sketchWrap'); wrap.classList.add('on');
+  const cv = document.getElementById('sketchCanvas');
+  cv.width = cv.clientWidth*2; cv.height = cv.clientHeight*2;   // retina
+  ctx = cv.getContext('2d'); ctx.scale(2,2);
+  ctx.lineCap='round'; ctx.lineJoin='round'; ctx.lineWidth=3;
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,cv.width,cv.height);
+  strokes=[snap()];
+  cv.onpointerdown = e=>{ drawing=true; ctx.strokeStyle=col; ctx.lineWidth=lw; ctx.beginPath(); ctx.moveTo(...pt(e)); e.preventDefault(); };
+  cv.onpointermove = e=>{ if(!drawing) return; ctx.lineTo(...pt(e)); ctx.stroke(); e.preventDefault(); };
+  cv.onpointerup = cv.onpointerleave = ()=>{ if(drawing){ drawing=false; strokes.push(snap()); } };
+}
+function pt(e){ const r=e.target.getBoundingClientRect(); return [e.clientX-r.left, e.clientY-r.top]; }
+function snap(){ return document.getElementById('sketchCanvas').toDataURL(); }
+function setCol(el){ col=el.dataset.c; lw=+el.dataset.w||3;
+  document.querySelectorAll('.sketchtools .col').forEach(x=>x.classList.toggle('on',x===el)); }
+// ถ่ายรูป/เลือกรูป แล้ววาดลงเป็นพื้นหลังของสเก็ตช์ (ย่อให้พอดีจอ แล้วเขียนทับได้เลย)
+function loadSketchPhoto(input){
+  const f = input.files[0]; if(!f) return;
+  const img = new Image();
+  img.onload = ()=>{
+    const cv = document.getElementById('sketchCanvas');
+    const W = cv.clientWidth, H = cv.clientHeight;     // พิกัด logical (ctx ถูก scale 2x แล้ว)
+    const sc = Math.min(W/img.width, H/img.height);
+    const w = img.width*sc, h = img.height*sc;
+    ctx.drawImage(img, (W-w)/2, (H-h)/2, w, h);
+    strokes.push(snap());
+    URL.revokeObjectURL(img.src);
+  };
+  img.src = URL.createObjectURL(f);
+  input.value='';
+}
+function undoSketch(){
+  if(strokes.length<2) return; strokes.pop();
+  const img=new Image(); img.onload=()=>{ const cv=document.getElementById('sketchCanvas');
+    ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(img,0,0); ctx.setTransform(2,0,0,2,0,0); };
+  img.src=strokes[strokes.length-1];
+}
+function clearSketch(){ const cv=document.getElementById('sketchCanvas');
+  ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle='#fff'; ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.setTransform(2,0,0,2,0,0); strokes=[snap()]; }
+function closeSketch(){ document.getElementById('sketchWrap').classList.remove('on'); }
+function saveSketch(){
+  const cap = prompt('ชื่อสเก็ตช์ (เช่น ผังถนนทางเข้า + ระยะ)','')||'';
+  P.sketches.push({data:snap(), caption:cap});
+  save(true); closeSketch(); renderSketches();
+}
+function delSketch(i){ if(!confirm('ลบสเก็ตช์นี้?'))return; P.sketches.splice(i,1); save(); renderSketches(); }
+function renderSketches(){
+  const el = document.getElementById('sketchList');
+  el.innerHTML = P.sketches.map((s,i)=>`
+    <div class="ph"><img src="${s.data}"><button class="x" onclick="delSketch(${i})">✕</button></div>`).join('');
+  document.getElementById('sketchEmpty').style.display = P.sketches.length? 'none':'block';
+}
+
+/* ---------- Report ---------- */
+function makeReport(){
+  const c = id=>catOf(id);
+  const stIc = s=> s==='ok'?'✓':(s==='no'?'✗ มีปัญหา':(s==='na'?'N/A':'—'));
+  // group items by category, keep original order inside
+  const groups = {};
+  P.items.forEach(it=>{ (groups[it.cat]=groups[it.cat]||[]).push(it); });
+  let itemRows='', photoSecs='', n=0;
+  for(const cat of CATS){
+    const its = groups[cat.id]; if(!its) continue;
+    itemRows += `<tr><th colspan="5">${cat.ic} ${cat.nm}</th></tr>`;
+    for(const it of its){
+      n++;
+      const w=parseFloat(it.w), l=parseFloat(it.l), t=parseFloat(it.t);
+      let calc=''; if(w>0&&l>0){ calc='พื้นที่ '+(w*l).toFixed(2)+' ตร.ม.'; if(t>0) calc+=' / '+(w*l*t/100).toFixed(2)+' ลบ.ม.'; }
+      itemRows += `<tr><td>${n}</td><td><b>${esc(it.name)||'-'}</b>${it.note?'<br><span style="color:#555">'+esc(it.note)+'</span>':''}</td>
+        <td>${dimText(it)}</td><td>${calc||'-'}</td>
+        <td>${it.gps? it.gps.lat+', '+it.gps.lng : '-'}</td></tr>`;
+      if(it.photos.length){
+        photoSecs += `<h2>📷 ${n}. ${esc(it.name)||'(ไม่มีชื่อ)'}</h2><div class="rphotos">`+
+          it.photos.map((p,i)=>`<figure><img src="${p.data}"><figcaption>รูปที่ ${n}.${i+1} ${esc(p.caption)}</figcaption></figure>`).join('')+`</div>`;
+      }
+    }
+  }
+  const ckRows = P.checklist.map(ck=>{
+    const phs = (ck.photos||[]).map(p=>
+      `<figure style="display:inline-block;width:30mm;margin:1mm;vertical-align:top">
+        <img src="${p.data}" style="width:100%;border:1px solid #999">
+        ${p.caption? '<figcaption style="font-size:9.5px;color:#444">'+esc(p.caption)+'</figcaption>':''}
+      </figure>`).join('');
+    return `<tr><td>${esc(ck.label)}</td><td style="text-align:center">${stIc(ck.status)}</td>
+      <td>${esc(ck.note)||''}${phs? '<div>'+phs+'</div>':''}</td></tr>`;
+  }).join('');
+  const sketchSec = P.sketches.length?
+    `<h2>✏️ สเก็ตช์หน้างาน</h2><div class="rphotos">`+
+    P.sketches.map((s,i)=>`<figure><img src="${s.data}" style="border:1px solid #999"><figcaption>สเก็ตช์ ${i+1}: ${esc(s.caption)}</figcaption></figure>`).join('')+`</div>` : '';
+  document.getElementById('report').innerHTML = `
+    <h1>รายงานสำรวจหน้างาน (Site Survey Report)</h1>
+    <table>
+      <tr><th style="width:25%">โครงการ</th><td>${esc(P.name)}</td></tr>
+      <tr><th>ลูกค้า / ผู้ว่าจ้าง</th><td>${esc(P.client)}</td></tr>
+      <tr><th>ที่ตั้ง</th><td>${esc(P.loc)}${P.gps? '<br>GPS: '+P.gps.lat+', '+P.gps.lng:''}</td></tr>
+      <tr><th>วันที่สำรวจ</th><td>${P.date||'-'}</td></tr>
+      <tr><th>ผู้สำรวจ</th><td>${esc(P.surveyor)}</td></tr>
+      ${P.note? '<tr><th>บันทึกภาพรวม</th><td>'+esc(P.note)+'</td></tr>':''}
+    </table>
+    <h2>📋 รายการสำรวจ (${P.items.length} รายการ)</h2>
+    <table><tr><th style="width:5%">#</th><th>รายการ / สภาพหน้างาน</th><th style="width:24%">ขนาดที่วัดได้</th><th style="width:18%">คำนวณ</th><th style="width:15%">GPS</th></tr>
+    ${itemRows||'<tr><td colspan="5">—</td></tr>'}</table>
+    <h2>✅ เช็คลิสต์หน้างาน</h2>
+    <table><tr><th>หัวข้อ</th><th style="width:13%">ผล</th><th style="width:30%">หมายเหตุ</th></tr>${ckRows}</table>
+    ${sketchSec}
+    ${photoSecs? '<div class="pagebreak"></div>'+photoSecs:''}
+    <div class="sig"><div>ผู้สำรวจ<br><br>(${esc(P.surveyor)||'.......................'})</div>
+    <div>ลูกค้า / ผู้ว่าจ้าง รับทราบ<br><br>(.......................)</div></div>
+    <p style="font-size:10px;color:#777;margin-top:6mm">จัดทำด้วย Survey Field Form · ${new Date().toLocaleDateString('th-TH')}</p>`;
+  window.print();
+}
+
+/* ---------- Export / Import ---------- */
+async function exportJSON(){
+  const list = await dbAll();
+  const blob = new Blob([JSON.stringify({app:'survey-webapp', v:1, projects:list}, null, 1)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'survey-backup-'+new Date().toISOString().slice(0,10)+'.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+function importJSON(input){
+  const f = input.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = async ()=>{
+    try{
+      const data = JSON.parse(rd.result);
+      const projs = data.projects||[];
+      if(!projs.length) return alert('ไม่พบข้อมูลโครงการในไฟล์');
+      for(const p of projs) await dbPut(p);
+      alert('นำเข้า '+projs.length+' โครงการเรียบร้อย');
+      renderProjects();
+    }catch(e){ alert('ไฟล์ไม่ถูกต้อง: '+e.message); }
+    input.value='';
+  };
+  rd.readAsText(f);
+}
+
+/* ---------- Init ---------- */
+renderProjects();
+</script>
+</body>
+</html>
