@@ -196,6 +196,18 @@
 
   <!-- ============ PAGE: สเก็ตช์ ============ -->
   <section class="page" id="pg-sketch">
+    <div class="card">
+      <h3>🗺️ ผังบริเวณจาก GPS</h3>
+      <p class="muted" style="margin:0 0 8px">เดินไปยืนที่มุมของพื้นที่ทีละมุม <b>ตามลำดับรอบแปลง</b> แล้วกดปัก — ครบ 3 มุมขึ้นไป สร้างภาพดาวเทียมไฮไลท์ผัง + คำนวณพื้นที่ให้อัตโนมัติ</p>
+      <div class="row">
+        <button class="btn p sm" id="bAddBtn" onclick="bAdd()">📍 ปักมุมที่ 1</button>
+        <button class="btn w sm" onclick="bAddManual()">✍️ พิมพ์พิกัด</button>
+        <button class="btn d sm" style="flex:0 0 auto" onclick="bClear()">🗑️</button>
+      </div>
+      <div id="bList" style="margin-top:8px"></div>
+      <button class="btn s block" id="planBtn" style="margin-top:8px;display:none" onclick="buildSitePlan()">🛰️ สร้างภาพผังบริเวณ</button>
+      <div id="planPreview" style="margin-top:10px"></div>
+    </div>
     <button class="btn p block" onclick="openSketch()">✏️ วาดสเก็ตช์ใหม่</button>
     <div class="card" style="margin-top:12px">
       <h3>ผังสเก็ตช์ของโครงการ</h3>
@@ -350,7 +362,7 @@ async function renderProjects(){
 async function newProject(){
   P = { id:uid(), name:'', client:'', date:new Date().toISOString().slice(0,10),
         surveyor:'', loc:'', note:'', gps:null,
-        items:[], sketches:[],
+        items:[], sketches:[], boundary:[], sitePlan:null,
         checklist: CK_DEFAULT.map(t=>({id:uid(), label:t, status:null, note:'', photos:[]})),
         updatedAt:new Date().toISOString() };
   await save(true);
@@ -369,6 +381,8 @@ async function delProject(){
 }
 function loadProjectUI(){
   P.checklist.forEach(c=>{ if(!c.photos) c.photos=[]; });   // โปรเจกต์เก่าไม่มีช่องรูป
+  if(!P.boundary) P.boundary=[];                            // โปรเจกต์เก่าไม่มีผังบริเวณ
+  renderBoundary();
   document.getElementById('pName').value = P.name;
   document.getElementById('pClient').value = P.client;
   document.getElementById('pDate').value = P.date;
@@ -687,6 +701,147 @@ function renderSketches(){
   document.getElementById('sketchEmpty').style.display = P.sketches.length? 'none':'block';
 }
 
+/* ---------- ผังบริเวณจาก GPS (ภาพดาวเทียม Esri + ไฮไลท์ + คำนวณพื้นที่) ---------- */
+function bAdd(){
+  const n = P.boundary.length+1;
+  const btn = document.getElementById('bAddBtn');
+  btn.textContent='⏳ กำลังหาตำแหน่ง...'; btn.disabled=true;
+  getPos(g=>{ P.boundary.push(g); btn.disabled=false; save(); renderBoundary();
+      if(g.acc>12) alert('⚠️ ความแม่น ±'+g.acc+' ม. ค่อนข้างหยาบ — ยืนนิ่งๆ กลางแจ้งแล้วลบมุมนี้ปักใหม่ได้');
+    },
+    err=>{ btn.disabled=false; renderBoundary();
+      const s = prompt('GPS ไม่ติด — วางพิกัดมุมที่ '+n+' จาก Google Maps แทน','');
+      if(s){ const g=parseLatLng(s); if(g){ P.boundary.push(g); save(); renderBoundary(); } else alert('อ่านพิกัดไม่ออก'); } });
+}
+function bAddManual(){
+  const s = prompt('วางพิกัดมุมที่ '+(P.boundary.length+1)+' (เช่น 13.7563, 100.5018)','');
+  if(!s) return;
+  const g = parseLatLng(s);
+  if(!g) return alert('อ่านพิกัดไม่ออก — ต้องเป็น ละติจูด, ลองจิจูด');
+  P.boundary.push(g); save(); renderBoundary();
+}
+function bDel(i){ P.boundary.splice(i,1); save(); renderBoundary(); }
+function bClear(){
+  if(!P.boundary.length && !P.sitePlan) return;
+  if(!confirm('ล้างหมุดทุกมุม + ภาพผังบริเวณ?')) return;
+  P.boundary=[]; P.sitePlan=null; save(); renderBoundary();
+}
+function renderBoundary(){
+  const list = document.getElementById('bList'); if(!list) return;
+  list.innerHTML = P.boundary.map((g,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px dashed var(--line);font-size:13.5px">
+      <span class="pill">มุม ${i+1}</span>
+      <a href="https://maps.google.com/?q=${g.lat},${g.lng}" target="_blank" style="color:var(--brand)">${g.lat}, ${g.lng}</a>
+      <span class="muted">${g.acc? '±'+g.acc+'ม.':''}</span>
+      <button class="btn d sm" style="margin-left:auto;padding:3px 9px" onclick="bDel(${i})">✕</button>
+    </div>`).join('');
+  document.getElementById('bAddBtn').textContent = '📍 ปักมุมที่ '+(P.boundary.length+1);
+  document.getElementById('planBtn').style.display = P.boundary.length>=3? 'block':'none';
+  const pv = document.getElementById('planPreview');
+  if(P.sitePlan){
+    pv.innerHTML = `<img src="${P.sitePlan.img}" style="width:100%;border-radius:10px;border:1px solid var(--line)">
+      <div class="calc" style="margin-top:8px">📐 พื้นที่ ≈ <b>${Math.round(P.sitePlan.areaM2).toLocaleString()} ตร.ม.</b>
+      (${raiText(P.sitePlan.areaM2)}) · เส้นรอบรูป ${P.sitePlan.perimeter.toFixed(1)} ม.<br>
+      ${P.sitePlan.sides.map((s,i)=>'ด้าน '+(i+1)+'→'+((i+1)%P.sitePlan.sides.length+1)+': '+s.toFixed(1)+' ม.').join(' · ')}</div>`;
+  } else pv.innerHTML='';
+}
+// แปลง lat/lng → พิกัดพิกเซล Web Mercator ที่ zoom z
+function merc(lat, lng, z){
+  const n = Math.pow(2,z)*256;
+  const x = (lng+180)/360*n;
+  const la = lat*Math.PI/180;
+  const y = (1-Math.log(Math.tan(la)+1/Math.cos(la))/Math.PI)/2*n;
+  return [x,y];
+}
+async function tileImg(z,x,y){
+  const r = await fetch('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/'+z+'/'+y+'/'+x);
+  if(!r.ok) throw new Error('tile '+r.status);
+  return createImageBitmap(await r.blob());
+}
+function raiText(m2){
+  const rai=Math.floor(m2/1600), ngan=Math.floor(m2%1600/400), wa=m2%400/4;
+  const out=[]; if(rai) out.push(rai+' ไร่'); if(ngan) out.push(ngan+' งาน');
+  out.push(wa.toFixed(1)+' ตร.วา'); return out.join(' ');
+}
+function planLabel(c, text, x, y, font){
+  c.font = font||'bold 15px sans-serif';
+  const w = c.measureText(text).width;
+  c.fillStyle='rgba(0,0,0,.62)'; c.fillRect(x-w/2-6, y-12, w+12, 24);
+  c.fillStyle='#fff'; c.textAlign='center'; c.textBaseline='middle'; c.fillText(text, x, y);
+}
+async function buildSitePlan(){
+  if(P.boundary.length<3) return alert('ต้องปักอย่างน้อย 3 มุม');
+  const btn = document.getElementById('planBtn');
+  btn.disabled=true; btn.textContent='⏳ กำลังโหลดภาพดาวเทียม...';
+  try{
+    let plan=null;
+    for(let z=19; z>=15 && !plan; z--){
+      try{ plan = await renderPlanAt(z); }catch(e){ /* zoom นี้ไม่มีภาพ/ใหญ่ไป → ลดซูม */ }
+    }
+    if(!plan) throw new Error('โหลดภาพดาวเทียมไม่สำเร็จ — ลองใหม่ตอนเน็ตนิ่งกว่านี้');
+    P.sitePlan = plan;
+    save(true);
+  }catch(e){ alert(e.message); }
+  btn.disabled=false; btn.textContent='🛰️ สร้างภาพผังบริเวณ';
+  renderBoundary();
+}
+async function renderPlanAt(z){
+  const pts = P.boundary;
+  const px = pts.map(p=>merc(p.lat,p.lng,z));
+  const PAD = 100;
+  let x0=Math.min(...px.map(p=>p[0]))-PAD, x1=Math.max(...px.map(p=>p[0]))+PAD;
+  let y0=Math.min(...px.map(p=>p[1]))-PAD, y1=Math.max(...px.map(p=>p[1]))+PAD;
+  // อย่างน้อย 560px และไม่เกิน 1600px (ใหญ่ไป = ใช้ zoom ต่ำลง)
+  const grow=(a,b,min)=>{ const d=(min-(b-a))/2; return d>0? [a-d,b+d]:[a,b]; };
+  [x0,x1]=grow(x0,x1,560); [y0,y1]=grow(y0,y1,560);
+  const W=Math.round(x1-x0), H=Math.round(y1-y0);
+  if(W>1600||H>1600) throw new Error('big');
+  // โหลด tiles ที่คลุมพื้นที่
+  const tx0=Math.floor(x0/256), tx1=Math.floor(x1/256), ty0=Math.floor(y0/256), ty1=Math.floor(y1/256);
+  const jobs=[];
+  for(let tx=tx0;tx<=tx1;tx++) for(let ty=ty0;ty<=ty1;ty++)
+    jobs.push(tileImg(z,tx,ty).then(im=>({im,tx,ty})));
+  const tiles = await Promise.all(jobs);
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  const c=cv.getContext('2d');
+  tiles.forEach(t=>c.drawImage(t.im, Math.round(t.tx*256-x0), Math.round(t.ty*256-y0)));
+  // จุดมุมเป็นพิกัดบน canvas
+  const cpts = px.map(p=>[p[0]-x0, p[1]-y0]);
+  // ไฮไลท์ผัง
+  c.beginPath(); cpts.forEach((p,i)=> i? c.lineTo(p[0],p[1]) : c.moveTo(p[0],p[1])); c.closePath();
+  c.fillStyle='rgba(245,158,11,.28)'; c.fill();
+  c.strokeStyle='#f59e0b'; c.lineWidth=4; c.lineJoin='round'; c.stroke();
+  // คำนวณระยะจริง (โปรเจกชันท้องถิ่น) + พื้นที่ (shoelace)
+  const R=6378137, lat0=pts.reduce((s,p)=>s+p.lat,0)/pts.length*Math.PI/180;
+  const xy = pts.map(p=>[p.lng*Math.PI/180*R*Math.cos(lat0), p.lat*Math.PI/180*R]);
+  let area=0, perimeter=0; const sides=[];
+  for(let i=0;i<xy.length;i++){
+    const j=(i+1)%xy.length;
+    area += xy[i][0]*xy[j][1]-xy[j][0]*xy[i][1];
+    const d = Math.hypot(xy[j][0]-xy[i][0], xy[j][1]-xy[i][1]);
+    sides.push(d); perimeter+=d;
+    // ป้ายความยาวกลางด้าน
+    planLabel(c, d.toFixed(1)+' ม.', (cpts[i][0]+cpts[j][0])/2, (cpts[i][1]+cpts[j][1])/2);
+  }
+  area = Math.abs(area)/2;
+  // หมุดมุม + เลขกำกับ
+  cpts.forEach((p,i)=>{
+    c.beginPath(); c.arc(p[0],p[1],11,0,Math.PI*2);
+    c.fillStyle='#f59e0b'; c.fill(); c.strokeStyle='#fff'; c.lineWidth=3; c.stroke();
+    c.fillStyle='#fff'; c.font='bold 13px sans-serif'; c.textAlign='center'; c.textBaseline='middle';
+    c.fillText(i+1, p[0], p[1]+0.5);
+  });
+  // ป้ายพื้นที่กลางผัง
+  const cx=cpts.reduce((s,p)=>s+p[0],0)/cpts.length, cy=cpts.reduce((s,p)=>s+p[1],0)/cpts.length;
+  planLabel(c, '≈ '+Math.round(area).toLocaleString()+' ตร.ม.', cx, cy, 'bold 18px sans-serif');
+  // ทิศเหนือ + เครดิตภาพ
+  planLabel(c, 'N ↑', W-34, 26, 'bold 14px sans-serif');
+  c.font='11px sans-serif'; c.textAlign='right'; c.textBaseline='bottom';
+  c.fillStyle='rgba(0,0,0,.5)'; c.fillRect(W-210, H-20, 210, 20);
+  c.fillStyle='#fff'; c.fillText('ภาพดาวเทียม © Esri, Maxar', W-8, H-5);
+  return { img:cv.toDataURL('image/jpeg',.85), areaM2:area, perimeter, sides, zoom:z, at:new Date().toISOString() };
+}
+
 /* ---------- Report ---------- */
 function makeReport(){
   const c = id=>catOf(id);
@@ -720,6 +875,15 @@ function makeReport(){
     return `<tr><td>${esc(ck.label)}</td><td style="text-align:center">${stIc(ck.status)}</td>
       <td>${esc(ck.note)||''}${phs? '<div>'+phs+'</div>':''}</td></tr>`;
   }).join('');
+  const planSec = P.sitePlan? `
+    <h2>🗺️ ผังบริเวณก่อสร้าง (ปักหมุด GPS ${P.boundary.length} มุม)</h2>
+    <img src="${P.sitePlan.img}" style="width:100%;max-height:125mm;object-fit:contain;border:1px solid #999">
+    <p style="font-size:12px;margin:2mm 0"><b>พื้นที่ ≈ ${Math.round(P.sitePlan.areaM2).toLocaleString()} ตร.ม.</b>
+      (${raiText(P.sitePlan.areaM2)}) · เส้นรอบรูป ${P.sitePlan.perimeter.toFixed(1)} ม.</p>
+    <table><tr><th style="width:10%">มุม</th><th>พิกัด</th><th style="width:30%">ด้าน → ยาว</th></tr>
+    ${P.boundary.map((g,i)=>`<tr><td>${i+1}</td><td>${g.lat}, ${g.lng}</td>
+      <td>${i+1} → ${(i+1)%P.boundary.length+1} : ${P.sitePlan.sides[i]? P.sitePlan.sides[i].toFixed(1)+' ม.':'-'}</td></tr>`).join('')}
+    </table>` : '';
   const sketchSec = P.sketches.length?
     `<h2>✏️ สเก็ตช์หน้างาน</h2><div class="rphotos">`+
     P.sketches.map((s,i)=>`<figure><img src="${s.data}" style="border:1px solid #999"><figcaption>สเก็ตช์ ${i+1}: ${esc(s.caption)}</figcaption></figure>`).join('')+`</div>` : '';
@@ -738,6 +902,7 @@ function makeReport(){
     ${itemRows||'<tr><td colspan="5">—</td></tr>'}</table>
     <h2>✅ เช็คลิสต์หน้างาน</h2>
     <table><tr><th>หัวข้อ</th><th style="width:13%">ผล</th><th style="width:30%">หมายเหตุ</th></tr>${ckRows}</table>
+    ${planSec}
     ${sketchSec}
     ${photoSecs? '<div class="pagebreak"></div>'+photoSecs:''}
     <div class="sig"><div>ผู้สำรวจ<br><br>(${esc(P.surveyor)||'.......................'})</div>
