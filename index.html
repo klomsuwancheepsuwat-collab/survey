@@ -129,6 +129,14 @@
     </div>
     <div id="projList"></div>
     <div class="card">
+      <h3>☁️ สำรองขึ้นคลาวด์อัตโนมัติ</h3>
+      <div class="muted" id="syncStatus">กำลังตรวจสอบ...</div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn s" onclick="syncNow(true)">☁️ ซิงก์เดี๋ยวนี้</button>
+        <button class="btn w" onclick="setToken()">🔑 ตั้งค่าเชื่อมต่อ</button>
+      </div>
+    </div>
+    <div class="card">
       <h3>💾 สำรอง / ย้ายข้อมูล</h3>
       <div class="row">
         <button class="btn s" onclick="exportJSON()">⬇️ Export ทั้งหมด</button>
@@ -297,7 +305,7 @@ let saveTimer = null;
 const uid = ()=> Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);
 const esc = s => (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function save(now){ if(!P) return; P.updatedAt = new Date().toISOString();
-  clearTimeout(saveTimer);
+  clearTimeout(saveTimer); queueSync();
   if(now) return dbPut(P);
   saveTimer = setTimeout(()=>dbPut(P), 400);
 }
@@ -732,8 +740,98 @@ function importJSON(input){
   rd.readAsText(f);
 }
 
+/* ---------- Cloud sync (สำรองอัตโนมัติขึ้น GitHub repo ส่วนตัว) ---------- */
+const SYNC_OWNER='klomsuwancheepsuwat-collab', SYNC_REPO='survey-data';
+// รับโค้ดเชื่อมต่อจาก URL ครั้งแรก (?token=...) แล้วลบออกจาก address bar ทันที
+(function(){
+  try{
+    const u = new URL(location.href);
+    const t = u.searchParams.get('token');
+    if(t){ localStorage.setItem('ghToken', t);
+      u.searchParams.delete('token');
+      history.replaceState(null,'', u.pathname + (u.search||'')); }
+  }catch(e){}
+})();
+function syncToken(){ return localStorage.getItem('ghToken')||''; }
+let syncTimer=null, syncing=false;
+let syncState = JSON.parse(localStorage.getItem('syncState')||'{}');  // projectId -> updatedAt ที่ซิงก์แล้ว
+const shaCache = {};
+function queueSync(){
+  if(!syncToken()) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(()=>syncNow(false), 20000);   // 20 วิหลังแก้ล่าสุด
+  renderSyncUI();
+}
+async function syncNow(manual){
+  if(!syncToken()){ if(manual) setToken(); return; }
+  if(syncing) return;
+  syncing=true; clearTimeout(syncTimer); renderSyncUI();
+  try{
+    const list = await dbAll();
+    for(const p of list){
+      if(syncState[p.id]===p.updatedAt) continue;          // ไม่มีอะไรใหม่
+      await pushFile('backup/'+p.id+'.json', JSON.stringify(p), p.name||p.id);
+      syncState[p.id]=p.updatedAt;
+      localStorage.setItem('syncState', JSON.stringify(syncState));
+    }
+    localStorage.setItem('lastSyncOk', new Date().toISOString());
+    localStorage.removeItem('lastSyncErr');
+  }catch(e){
+    localStorage.setItem('lastSyncErr', e.message);
+    if(manual) alert('ซิงก์ไม่สำเร็จ: '+e.message+'\n(ข้อมูลยังอยู่ในเครื่องครบ จะลองใหม่อัตโนมัติเมื่อมีเน็ต)');
+  }
+  syncing=false; renderSyncUI();
+}
+async function pushFile(path, text, label){
+  const H = {'Authorization':'token '+syncToken(), 'Accept':'application/vnd.github+json'};
+  const api = 'https://api.github.com/repos/'+SYNC_OWNER+'/'+SYNC_REPO+'/contents/'+path;
+  if(shaCache[path]===undefined){
+    const r = await fetch(api, {headers:H});
+    shaCache[path] = r.ok? (await r.json()).sha : null;
+  }
+  const b64 = await blobB64(new Blob([text]));
+  const body = {message:'สำรอง '+label, content:b64};
+  if(shaCache[path]) body.sha = shaCache[path];
+  let r = await fetch(api, {method:'PUT', headers:H, body:JSON.stringify(body)});
+  if(r.status===409 || r.status===422){                    // sha ไม่ตรง — ดึงใหม่แล้วลองซ้ำ
+    const g = await fetch(api, {headers:H});
+    shaCache[path] = g.ok? (await g.json()).sha : null;
+    if(shaCache[path]) body.sha = shaCache[path]; else delete body.sha;
+    r = await fetch(api, {method:'PUT', headers:H, body:JSON.stringify(body)});
+  }
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  shaCache[path] = (await r.json()).content.sha;
+}
+function blobB64(blob){ return new Promise(res=>{
+  const rd = new FileReader();
+  rd.onload = ()=>res(rd.result.split(',')[1]);
+  rd.readAsDataURL(blob); });}
+async function renderSyncUI(){
+  const el = document.getElementById('syncStatus'); if(!el) return;
+  if(!syncToken()){ el.innerHTML = '🔌 ยังไม่เชื่อมต่อ — กด "ตั้งค่าเชื่อมต่อ" แล้ววางโค้ด'; return; }
+  const list = await dbAll();
+  const pending = list.filter(p=>syncState[p.id]!==p.updatedAt).length;
+  const ok = localStorage.getItem('lastSyncOk');
+  const err = localStorage.getItem('lastSyncErr');
+  let s = syncing? '⏳ กำลังซิงก์...' :
+    (pending? '🟡 รอซิงก์ '+pending+' โครงการ' : '🟢 ข้อมูลสำรองครบแล้ว');
+  if(ok) s += ' · ล่าสุด '+new Date(ok).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+  if(err && !syncing) s += '<br><span style="color:#dc2626">⚠️ ครั้งล่าสุดไม่สำเร็จ ('+esc(err)+') จะลองใหม่อัตโนมัติ</span>';
+  el.innerHTML = s;
+}
+function setToken(){
+  const t = prompt('วางโค้ดเชื่อมต่อ (ขอได้จากเลขาที่ Mac)', syncToken()? '(มีโค้ดอยู่แล้ว — วางใหม่เพื่อเปลี่ยน)':'');
+  if(t===null) return;
+  if(t && !t.startsWith('(')){ localStorage.setItem('ghToken', t.trim()); syncNow(true); }
+}
+// มีเน็ตกลับมา / กำลังสลับแอป → รีบซิงก์ส่วนที่ค้าง
+window.addEventListener('online', ()=>syncNow(false));
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden) syncNow(false); });
+
 /* ---------- Init ---------- */
 renderProjects();
+renderSyncUI();
+syncNow(false);   // เปิดแอปมา ซิงก์ส่วนที่ค้างทันที
 </script>
 </body>
 </html>
